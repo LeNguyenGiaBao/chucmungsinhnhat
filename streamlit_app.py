@@ -24,7 +24,7 @@ with col:
 # functional button
 left_column, right_column = st.columns(2)
 with left_column:
-    event = st.selectbox("Template", ("template_1", ""))
+    event = st.selectbox("Template", ("template_1", "template_2"))
     if event:
         config_event = read_event_config(event)
 
