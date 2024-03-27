@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import cv2
+import numpy as np
 import streamlit as st
 from PIL import Image
 from streamlit_cropper import st_cropper
@@ -48,10 +50,30 @@ if uploaded_file is not None:
             )
 
 if cropped_img:
+    is_using_mask = "is_mask" in config_event and config_event["is_mask"]
+    x, y, width, height = config_event["x"], config_event["y"], config_event['width'], config_event['height']
     cropped_img = cropped_img.resize((config_event["width"], config_event["height"]))
-    mockup_image = Image.open(config_event["image_path"])
-    result_image = mockup_image.copy()
-    result_image.paste(cropped_img, (config_event["x"], config_event["y"]))
+    cropped_img = np.array(cropped_img)
+
+    mockup_image = cv2.imread(config_event["image_path"])
+    mockup_image_height, mockup_image_width = mockup_image.shape[0], mockup_image.shape[1]
+
+    if is_using_mask:
+        mask_image = cv2.imread(config_event["mask_path"], cv2.IMREAD_GRAYSCALE)
+
+        _, binary_mask = cv2.threshold(mask_image, 127, 255, cv2.THRESH_BINARY)
+        inverted_mask = cv2.bitwise_not(binary_mask)
+        blank_image = np.zeros((mockup_image_height,mockup_image_width,3), np.uint8)
+        blank_image[y: y+height, x: x+width] = cropped_img
+
+        result_image = cv2.bitwise_and(mockup_image, mockup_image, mask=inverted_mask)
+        result_image = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
+        result_image = cv2.add(result_image, cv2.bitwise_and(blank_image, blank_image, mask=binary_mask))
+    else:
+        result_image = mockup_image
+        result_image[y: y+height, x: x+width] = cropped_img
+
+    result_image = Image.fromarray(result_image)
     st.session_state["result_image"] = result_image
     with result_image_block:
         st.image(result_image)
